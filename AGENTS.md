@@ -39,3 +39,20 @@ Docs: https://docs.expo.dev/eas/index.md
 - If `ios/` and `android/` directories do not exist, they are generated (Continuous Native Generation). Never create or edit them by hand — configure native behavior in `app.json` and config plugins.
 - Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
 - Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
+
+## This project (スキマ日語)
+
+- Design and rationale: `docs/DESIGN.md`. Content formats: `content/README.md`.
+- Learning logic lives in `src/engine/` as pure TypeScript with Jest tests (`npm test`); keep React and
+  Expo imports out of it. Screens call `src/state/actions.ts`, never the engine directly.
+- `src/content/data/*.json` is generated: edit `content/` and run `npm run build:content`.
+- UI copy is Traditional Chinese (Taiwan usage). Japanese text uses `lang="ja"` on `Txt` or the `Ruby`
+  component so it renders with a Japanese font.
+- Android: Japanese text must go through `Txt lang="ja"`, `Ruby` or `jaFont()` (theme.ts) to get the
+  bundled Noto Sans JP subset; it has separate Regular/Bold families, so never set `fontWeight` on it
+  directly. New Japanese UI strings go in `UI_JAPANESE` in `scripts/build-content.ts`, then
+  `npm run build:content` regenerates the subset.
+- Speech goes through `src/audio/speech.ts`, which picks a Japanese voice and never falls back to the
+  phone's default (Chinese) voice; screens read voice availability from `src/state/voice.ts`.
+- Android back button: full-screen flows handle it with `BackHandler` inside `useFocusEffect`.
+- Run `npm test`, `npm run typecheck` and `npm run lint` before declaring a task done.

@@ -1,56 +1,111 @@
-# Welcome to your Expo app 👋
+# スキマ日語 · Sukima Nihongo
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+零碎時間，一點一點學日語。A micro-learning Japanese app for Traditional Chinese speakers, for iPhone
+and Android: 1–5 minute blocks you can stop at any moment, with or without sound, from kana to JLPT N1.
 
-## Get started
+* **Micro-blocks** of 1 / 3 / 5 minutes; every answer is saved, so you resume on the exact question.
+* **有聲／靜音**: listening questions when you have earphones, silent twins of the same questions when you don't.
+* **Adaptive**: FSRS spaced repetition plus an Elo-style level estimate, a placement test,
+  「太簡單／太難」 feedback, or pick a level yourself.
+* **Built for Chinese speakers**: 新字體↔繁體 comparison, 漢字陷阱 (false friends), kana 字源,
+  reading-first checks, Taiwan-standard translations.
+* **Content**: 208 kana · 2,586 words · 796 kanji · 229 grammar points · 99 false friends across N5–N1.
 
-1. Install dependencies
+The full product and technical design is in [docs/DESIGN.md](docs/DESIGN.md).
 
-   ```bash
-   npm install
-   ```
+## Run it
 
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+Requirements: Node 20+ (tested with Node 24) and a phone with **Expo Go** (App Store or Google Play).
+No Mac, Xcode or Android Studio needed.
 
 ```bash
-npm run reset-project
+npm install
+npx expo start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Open the app on the phone (phone and computer on the same Wi-Fi, or run `npx expo start --tunnel`):
 
-### Other setup steps
+* **iPhone**: scan the QR code with the Camera app.
+* **Android**: scan the QR code from inside Expo Go (「Scan QR code」).
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+Press `w` in the terminal for a web preview in the browser.
 
-## Learn more
+### Japanese voice
 
-To learn more about developing your project with Expo, look at the following resources:
+Sound mode uses the phone's own text-to-speech, so it works offline. If the phone has no Japanese
+voice, the app says so on 今天 and 我的, stops asking listening questions, and never falls back to a
+Chinese voice.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+* **iPhone**: usually has a Japanese voice already. For a better one: Settings → Accessibility → Spoken
+  Content → Voices → Japanese → download an Enhanced voice. The app picks it automatically.
+* **Android**: some phones have no Japanese voice data installed. 我的 then has a button that opens
+  the text-to-speech settings; download 日文 for the engine (e.g. Speech Services by Google), then come
+  back to the app. On-device voices are preferred over network ones.
 
-## Join the community
+## Scripts
 
-Join our community of developers creating universal apps.
+| Command | What it does |
+|---|---|
+| `npm start` | Expo dev server (Expo Go / web) |
+| `npm run android` | Dev server, opened on a connected Android phone or emulator (needs `adb`) |
+| `npm run web` | Web preview |
+| `npm test` | Unit tests (engine, content integrity) |
+| `npm run typecheck` | TypeScript |
+| `npm run lint` | ESLint |
+| `npm run build:content` | Validate `content/` and regenerate `src/content/data/*.json` |
+| `npm run examples -- select` / `apply` | Pick example sentences from Tatoeba for words without one, then write the reviewed ones into `content/` |
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Project layout
+
+```
+src/app/         screens (Expo Router): tabs 今天/課程/複習/我的, session, placement, onboarding, kana chart
+src/features/    quiz and session UI, missing-voice hint
+src/ui/          theme, fonts, furigana (Ruby), controls, icons, tab bars (native / web)
+src/audio/       text-to-speech: voice choice, Android fallbacks
+src/lib/         haptics, confirm dialogs
+src/state/       zustand stores (settings, progress, session, voice), actions, storage
+src/engine/      pure TypeScript learning logic (block builder, exercises, FSRS, adaptivity, placement) + tests
+src/content/     content types, kana table, registry, generated data/
+content/         editable sources: vocab/*.tsv, kanji/*.tsv, grammar/*.txt, traps.tsv (see content/README.md)
+assets/fonts/    Noto Sans JP subset for Android (generated by build:content)
+scripts/         build-content.ts
+docs/            DESIGN.md
+eas.json         EAS Build profiles (preview APK, production store builds)
+```
+
+## Editing content
+
+Edit the TSV/text files in `content/` (they open in any spreadsheet app), then run
+`npm run build:content`. The build refuses to write if anything is invalid, and it regenerates the
+Android Japanese font subset when new characters appear. Format details and the plan for scaling to the
+full N1 lists are in [content/README.md](content/README.md).
+
+> The v1 learning content was written with AI assistance and passes automated checks, but it should be
+> reviewed by a native speaker or teacher before public release.
+
+## Credits
+
+* Most vocabulary example sentences: [Tatoeba](https://tatoeba.org), CC BY 2.0 FR. Each example shows its
+  author and links to the sentence; ids are kept in `content/vocab/*.tsv` (see content/README.md).
+* Japanese font on Android: Noto Sans JP, SIL Open Font License (`assets/fonts/OFL.txt`).
+
+## Build and publish
+
+EAS builds in the cloud, so both platforms build from Windows. First change the app IDs in `app.json`
+to your own (`ios.bundleIdentifier` and `android.package`, e.g. `com.yourname.sukima`), then run
+`npx eas-cli@latest login`. Build numbers are managed by EAS (`appVersionSource: remote` in `eas.json`).
+
+**iOS** (needs an Apple Developer account)
+
+1. `npx eas-cli@latest build -p ios`
+2. `npx eas-cli@latest submit -p ios` to upload to TestFlight / App Store Connect.
+
+**Android**
+
+* Test build: `npx eas-cli@latest build -p android --profile preview` makes an **APK** you can
+  install directly: open the link or QR code EAS shows on the phone (allow installing unknown apps).
+* Store build: `npx eas-cli@latest build -p android` makes an **AAB** for Google Play (needs a Google
+  Play developer account).
+* `npx eas-cli@latest submit -p android` uploads it to the Play Console **internal testing** track
+  (set in `eas.json`). Google Play only accepts API uploads after the app's first upload, so upload the
+  very first AAB by hand in the Play Console; automated submits also need a Google service account key.
