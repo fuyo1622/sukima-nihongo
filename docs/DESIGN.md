@@ -12,7 +12,7 @@
 | **Context** | Spare moments of 1–5 minutes: commuting, eating, waiting. Often one-handed and often interrupted |
 | **Promise** | One tap from opening the app to the first question, and no progress lost when interrupted |
 | **Scope** | Kana → N5 → N4 → N3 → N2 → N1: vocabulary, kanji, grammar, listening, plus Chinese-speaker-specific modules |
-| **Platform** | iOS and Android from one Expo / React Native codebase (a web build is used for development) |
+| **Platform** | iOS and Android from one Expo / React Native codebase (a web build is used for development and, deployed on Vercel as an offline Home Screen app, for testing on phones) |
 
 Contents: [1 Users](#1-users-and-contexts) · [2 Principles](#2-design-principles) ·
 [3 Learning block](#3-the-learning-block-學習小節) · [4 Exercises](#4-exercise-types) ·

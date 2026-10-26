@@ -300,16 +300,21 @@ export function ModalScreen({ children }: { children: ReactNode }) {
 export function Screen({ title, subtitle, right, children }: { title?: string; subtitle?: string; right?: ReactNode; children: ReactNode }) {
   const c = useColors();
   const insets = useSafeAreaInsets();
-  // iOS insets the scroll view automatically; Android's native tabs only inset the bottom, so the
-  // status bar height is added here (the app draws edge-to-edge).
-  const topInset = Platform.OS === 'android' ? insets.top : 0;
+  // iOS insets the scroll view automatically. Android's native tabs only inset the bottom (the app draws
+  // edge-to-edge), and the web app has no native tabs, so the safe areas are added here; in a desktop
+  // browser they are 0.
+  const topInset = Platform.OS === 'ios' ? 0 : insets.top;
+  const bottomInset = Platform.OS === 'web' ? insets.bottom : 0;
   return (
     // Not flattened, so iOS native tabs still find the ScrollView for insets and scroll-to-top.
     <View collapsable={false} style={{ flex: 1, backgroundColor: c.bg }}>
       <ScrollView
         style={{ flex: 1 }}
         contentInsetAdjustmentBehavior="automatic"
-        contentContainerStyle={[styles.screen, { paddingTop: space.md + topInset, paddingBottom: TAB_BAR_SPACE + space.xxl }]}>
+        contentContainerStyle={[
+          styles.screen,
+          { paddingTop: space.md + topInset, paddingBottom: TAB_BAR_SPACE + space.xxl + bottomInset },
+        ]}>
         <View style={styles.screenInner}>
           {title && (
             <View style={styles.header}>

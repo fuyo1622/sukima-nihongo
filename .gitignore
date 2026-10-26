@@ -44,3 +44,6 @@ example
 
 # Tatoeba exports and review files for npm run examples (large, re-downloadable)
 content/.cache/
+
+# Vercel CLI project link
+.vercel

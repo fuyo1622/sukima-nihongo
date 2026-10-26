@@ -1,5 +1,6 @@
 import { TabList, TabSlot, TabTrigger, Tabs, type TabListProps, type TabTriggerSlotProps } from 'expo-router/ui';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { dueCount } from '@/engine/progress';
 import { useNow } from '@/state/hooks';
@@ -36,8 +37,10 @@ export default function AppTabs() {
 
 function TabBar(props: TabListProps) {
   const c = useColors();
+  // Clears the home indicator when the web app runs full screen from an iPhone's Home Screen.
+  const { bottom } = useSafeAreaInsets();
   return (
-    <View style={styles.wrap} pointerEvents="box-none">
+    <View style={[styles.wrap, { paddingBottom: 12 + bottom }]} pointerEvents="box-none">
       <View {...props} style={[styles.bar, { backgroundColor: c.surface, borderColor: c.border }]} />
     </View>
   );
