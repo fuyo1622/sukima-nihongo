@@ -45,12 +45,12 @@ export default function PlacementScreen() {
     if (!step || chosen !== undefined) return;
     setChosen(choice);
     const next = answerPlacement(state, step.itemId, choice !== null && choice === step.answer);
-    // A short pause so the learner sees the answer, then the next question.
+    // A pause so the learner sees which answer was right, then the next question.
     timer.current = setTimeout(() => {
       setState(next);
       setStep(placementFinished(next) ? null : placementQuestion(next, Math.random));
       setChosen(undefined);
-    }, 700);
+    }, 1200);
   };
 
   const close = useCallback(() => {

@@ -359,7 +359,8 @@ test it leaves the test; in onboarding it goes to the previous page; elsewhere i
 * Minimum target height 56 pt (options 56–72 pt); generous spacing between options.
 * One question per screen and no scrolling in the common case.
 * Feedback you can feel: success/error haptics, plus colour **and** an icon (never colour alone).
-* Correct answers auto-advance (1.5 s with sound, 0.9 s silent); wrong answers wait for 繼續.
+* Correct answers auto-advance once the answer card has been shown for 2 s and the spoken answer (with sound)
+  has finished plus 0.7 s, so a sentence is never cut off; wrong answers wait for 繼續, which also skips the wait.
 
 ### 7.4 Visual design
 

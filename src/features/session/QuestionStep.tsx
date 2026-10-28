@@ -16,6 +16,7 @@ import { Icon } from '@/ui/Icon';
 import { space, useColors } from '@/ui/theme';
 import { Txt } from '@/ui/Txt';
 
+import { readyToAdvance } from './advance';
 import { Footer } from './SessionParts';
 
 /** One multiple-choice question, then feedback with the answer card. */
@@ -24,7 +25,8 @@ export function QuestionStep({ step, item }: { step: Step; item: Item }) {
   const settings = useSettings((s) => s.settings);
   const answer = useSession((s) => s.session?.answers[step.id]);
   const shownAt = useRef(0);
-  const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Bumped to cancel a pending automatic move to the next question.
+  const advanceRun = useRef(0);
   const voiceMissing = useVoice((s) => s.status === 'missing');
   const kind = playableKind(step.kind, settings.sound && !voiceMissing);
   const revealed = answer !== undefined;
@@ -36,9 +38,10 @@ export function QuestionStep({ step, item }: { step: Step; item: Item }) {
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') shownAt.current = Date.now();
     });
+    const run = advanceRun;
     return () => {
       sub.remove();
-      if (advanceTimer.current) clearTimeout(advanceTimer.current);
+      run.current++;
     };
   }, []);
 
@@ -46,13 +49,19 @@ export function QuestionStep({ step, item }: { step: Step; item: Item }) {
     if (revealed) return;
     const correct = answerCurrent(choice, Date.now() - shownAt.current);
     if (settings.haptics) (correct ? hapticCorrect : hapticWrong)();
-    if (settings.sound && settings.autoPlay) void speak(answerSpeech(step, item), settings.speechRate);
-    // Correct answers flow on by themselves; mistakes wait so the answer card can be read.
-    if (correct && settings.autoAdvance) advanceTimer.current = setTimeout(nextStep, settings.sound ? 1500 : 900);
+    const speech = settings.sound && settings.autoPlay ? speak(answerSpeech(step, item), settings.speechRate) : undefined;
+    // Correct answers move on by themselves once the answer has been heard, or has had time to be
+    // read; mistakes wait for 繼續 so the answer card can be studied.
+    if (correct && settings.autoAdvance) {
+      const run = ++advanceRun.current;
+      void readyToAdvance(speech).then(() => {
+        if (run === advanceRun.current) nextStep();
+      });
+    }
   };
 
   const onContinue = () => {
-    if (advanceTimer.current) clearTimeout(advanceTimer.current);
+    advanceRun.current++;
     nextStep();
   };
 

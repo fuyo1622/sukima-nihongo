@@ -70,39 +70,57 @@ export function checkVoices(): Promise<void> {
   return lookup;
 }
 
-function say(text: string, rate: number, gen: number): void {
+/** `onEnd` runs once the text has been spoken, or speaking it was stopped, failed or never started. */
+function say(text: string, rate: number, gen: number, onEnd: () => void): void {
   const voice = voices.find((id) => !failed.has(id));
   // Without a Japanese voice the engine would read the kanji with Chinese pronunciation.
-  if (!voice) return;
+  if (!voice) return onEnd();
   Speech.speak(text, {
     language: LANGUAGE,
     voice,
     rate,
     onStart: () => setVoiceStatus('ready'),
+    onDone: onEnd,
+    onStopped: onEnd,
     onError: () => {
       // Android lists voices whose data is not downloaded yet and network voices that fail
       // offline: try the next one, and report the voice missing when none of them works.
       // An error after the learner moved on may just be the interruption, so it is ignored.
-      if (Platform.OS !== 'android' || gen !== generation) return;
+      if (Platform.OS !== 'android' || gen !== generation) return onEnd();
       failed.add(voice);
       if (voices.some((id) => !failed.has(id))) {
-        say(text, rate, gen);
+        say(text, rate, gen, onEnd);
       } else {
         failed = new Set();
         setVoiceStatus('missing');
+        onEnd();
       }
     },
   });
 }
 
-export async function speak(text: string, rate = 1): Promise<void> {
-  if (!text) return;
+/** Resolves when the text has been spoken (or stopped, failed, or replaced by newer speech). */
+export function speak(text: string, rate = 1): Promise<void> {
+  return new Promise((resolve) => {
+    // A safety net: some engines (Safari) don't always report the end of speech.
+    const timer = setTimeout(resolve, 2000 + (text.length * 400) / Math.max(rate, 0.25));
+    const done = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    void start(text, rate, done);
+  });
+}
+
+async function start(text: string, rate: number, onEnd: () => void): Promise<void> {
+  if (!text) return onEnd();
   const gen = ++generation;
   await setAudioMode();
   if (voices.length === 0 && Date.now() - lookedUpAt > 10_000) await checkVoices();
   await Speech.stop();
   // A newer word, or leaving the screen, wins over a word still waiting here.
-  if (gen === generation) say(text, rate, gen);
+  if (gen === generation) say(text, rate, gen, onEnd);
+  else onEnd();
 }
 
 export function stopSpeaking(): void {
