@@ -32,14 +32,14 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
 
   if (request.mode === 'navigate') {
-    // Every route is the same single page, cached under "/".
+    // Every route is the same single page, cached under "/". A server error (or a host without the
+    // single-page rewrite) also gets the cached page rather than an error screen.
     event.respondWith(
       fetch(request)
         .then((response) => {
-          if (response.ok) {
-            const copy = response.clone();
-            event.waitUntil(caches.open(CACHE).then((cache) => cache.put('/', copy)));
-          }
+          if (!response.ok) return caches.match('/').then((cached) => cached || response);
+          const copy = response.clone();
+          event.waitUntil(caches.open(CACHE).then((cache) => cache.put('/', copy)));
           return response;
         })
         .catch(() => caches.match('/')),

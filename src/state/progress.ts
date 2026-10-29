@@ -28,6 +28,8 @@ interface ProgressStore {
   hydrate: () => Promise<void>;
   /** Replaces the progress and persists the parts that changed. */
   commit: (next: ProgressData) => void;
+  /** Replaces the progress and persists all of it (restoring a backup). */
+  replace: (next: ProgressData) => void;
   reset: () => void;
 }
 
@@ -38,7 +40,9 @@ export const useProgress = create<ProgressStore>()((set, get) => ({
       loadJSON<Meta>(META_KEY),
       ...ITEM_TYPES.map((t) => loadJSON<Record<string, CardState>>(cardsKey(t))),
     ]);
-    if (!meta) return;
+    // Cards count even if the summary record is missing (say its last write failed): the next answer
+    // would otherwise overwrite them.
+    if (!meta && !shards.some(Boolean)) return;
     const cards: Record<string, CardState> = Object.assign({}, ...shards.filter(Boolean));
     set({ data: { ...emptyProgress(), ...meta, cards } });
   },
@@ -55,6 +59,11 @@ export const useProgress = create<ProgressStore>()((set, get) => ({
       }
       for (const type of changed) saveJSON(cardsKey(type), shard(next.cards, type));
     }
+    saveJSON(META_KEY, metaOf(next));
+  },
+  replace: (next) => {
+    set({ data: next });
+    for (const type of ITEM_TYPES) saveJSON(cardsKey(type), shard(next.cards, type));
     saveJSON(META_KEY, metaOf(next));
   },
   reset: () => {

@@ -1,12 +1,17 @@
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { ALL_ITEMS } from '@/content';
+import { bestStreak, currentStreak, dayKey, totalMs } from '@/engine/progress';
+import { BackupPaste } from '@/features/BackupPaste';
 import { VoiceHint } from '@/features/VoiceHint';
-import { bestStreak, currentStreak, totalMs } from '@/engine/progress';
-import { confirmAsync } from '@/lib/confirm';
+import { canPickBackupFile, pickBackupFile, saveBackupFile } from '@/lib/backupFile';
+import { confirmAsync, notify } from '@/lib/confirm';
+import { webBuild } from '@/lib/webApp';
 import { resetEverything } from '@/state/actions';
+import { backupFileName, createBackup, describeBackup, parseBackup, restoreBackup } from '@/state/backup';
 import { useNow } from '@/state/hooks';
 import { useProgress } from '@/state/progress';
 import { useSettings, type BlockMinutes } from '@/state/settings';
@@ -34,6 +39,8 @@ export default function MeScreen() {
   const data = useProgress((s) => s.data);
   const minutes = Math.round(totalMs(data.days) / 60_000);
 
+  const [pasting, setPasting] = useState(false);
+
   const reset = async () => {
     const ok = await confirmAsync('重設所有學習紀錄？', '所有進度、複習排程和統計都會被刪除，無法復原。', '重設', true);
     if (ok) {
@@ -41,6 +48,30 @@ export default function MeScreen() {
       update({ onboarded: false });
       router.replace('/onboarding');
     }
+  };
+
+  // No await before saving or picking: browsers only share files or open the file picker right after a tap.
+  const backup = () => {
+    const file = createBackup();
+    void saveBackupFile(backupFileName(file), JSON.stringify(file)).then((saved) => {
+      if (saved) update({ lastBackupAt: file.createdAt });
+    });
+  };
+
+  const restoreFrom = async (text: string | null) => {
+    if (!text) return;
+    const parsed = parseBackup(text);
+    if ('error' in parsed) return notify('無法還原', parsed.error);
+    const ok = await confirmAsync('從備份還原？', `${describeBackup(parsed.backup)}\n目前的學習紀錄會被這份備份取代。`, '還原', true);
+    if (!ok) return;
+    restoreBackup(parsed.backup);
+    setPasting(false);
+    notify('已還原', '學習紀錄已從備份還原。');
+  };
+
+  const restore = () => {
+    if (canPickBackupFile) void pickBackupFile().then(restoreFrom);
+    else setPasting(true);
   };
 
   return (
@@ -116,15 +147,27 @@ export default function MeScreen() {
         <SwitchRow label="震動回饋" value={settings.haptics} onValueChange={(haptics) => update({ haptics })} />
       </Section>
 
-      <Section title="資料">
+      <Section
+        title="資料"
+        footer="App 更新時學習紀錄會自動保留。刪掉 App（包括主畫面上的網頁版）或換手機前，先備份一份，之後再還原。">
+        <Row
+          label="備份學習紀錄"
+          detail={settings.lastBackupAt ? `上次備份：${dayKey(settings.lastBackupAt)}` : '存成一個檔案，還沒備份過'}
+          onPress={backup}
+        />
+        <Divider />
+        <Row label="從備份還原" detail={canPickBackupFile ? '選擇之前備份的檔案' : '貼上之前備份的內容'} onPress={restore} />
+        <Divider />
         <Row label="重新做程度測驗" detail="約 2 分鐘，會重新估計你的程度" onPress={() => router.push('/placement')} />
         <Divider />
         <Row label="重設所有學習紀錄" destructive onPress={reset} />
       </Section>
 
       <Txt variant="caption" color="textMuted" center>
-        スキマ日語 v{Constants.expoConfig?.version ?? '1.0.0'} · 學習紀錄只存在手機上（會隨手機備份）{'\n'}學習內容由 AI 協助編寫，持續校對中{'\n'}例句多數來自 Tatoeba（tatoeba.org，CC BY 2.0 FR），作者列在每個例句下方
+        スキマ日語 v{Constants.expoConfig?.version ?? '1.0.0'}
+        {webBuild ? `（網頁版 ${webBuild.slice(0, 7)}）` : ''} · 學習紀錄存在這支手機上{'\n'}學習內容由 AI 協助編寫，持續校對中{'\n'}例句多數來自 Tatoeba（tatoeba.org，CC BY 2.0 FR），作者列在每個例句下方
       </Txt>
+      <BackupPaste visible={pasting} onClose={() => setPasting(false)} onRestore={(text) => void restoreFrom(text)} />
     </Screen>
   );
 }

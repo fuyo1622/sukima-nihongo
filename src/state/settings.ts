@@ -23,6 +23,10 @@ export interface Settings {
   haptics: boolean;
   /** Move on automatically after a correct answer. */
   autoAdvance: boolean;
+  /** When the learner last saved a backup file (備份學習紀錄). */
+  lastBackupAt: number | null;
+  /** Web app: the build that last ran, to say after an update that progress was kept. */
+  lastBuild: string | null;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -38,6 +42,8 @@ export const DEFAULT_SETTINGS: Settings = {
   focus: { vocab: true, kanji: true, grammar: true },
   haptics: true,
   autoAdvance: true,
+  lastBackupAt: null,
+  lastBuild: null,
 };
 
 const KEY = 'settings:v1';

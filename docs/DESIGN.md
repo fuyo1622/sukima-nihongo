@@ -476,6 +476,13 @@ the phone's own backup (iCloud / Google). Resetting in 我的 → 重設所有�
 analytics (§11) would be opt-in and documented in the App Store privacy label and the Google Play data
 safety form.
 
+**Keeping progress.** App updates never touch it: each version reads the data the last one saved, and data
+that can't be read is set aside instead of being overwritten. The web app asks the browser to keep its
+storage and, after an update, says once on 今天 that the progress was kept. Deleting the app (on an iPhone
+also a Home Screen web app) deletes its storage, so 我的 → 資料 has **備份學習紀錄** (progress and settings
+as one JSON file, shared or downloaded) and **從備份還原** (pick the file; the native app pastes it). The
+file never leaves the phone unless the learner sends it somewhere.
+
 ## 10. Success metrics
 
 Measured with opt-in analytics in a later version:

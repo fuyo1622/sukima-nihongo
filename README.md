@@ -38,7 +38,10 @@ For everyday testing, the web build is deployed on Vercel and can be installed o
 * **iPhone**: open the site in Safari → Share → 加入主畫面 (Add to Home Screen), then open it from that icon.
   **Android**: Chrome → ⋮ → Install app.
 * It opens offline after the first visit (service worker in `public/sw.js`). A new deploy shows up the next
-  time the app is opened online. Progress is stored on the phone, separately from Expo Go.
+  time the app is opened online, and the progress stays (no need to re-add the app). Progress is stored on
+  the phone, separately from Expo Go.
+* Deleting the Home Screen app deletes its progress. Before that, or before changing phones, use
+  我的 → 資料 → 備份學習紀錄 (saves a file, e.g. to 「檔案」), then 從備份還原 in the new install.
 
 It is the web build, so a few things differ from the native app: the tab bar is the web one, there is no
 vibration, speech uses the browser's Japanese voice, and the bundled Android font isn't used. Check those

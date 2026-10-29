@@ -10,6 +10,7 @@ import { currentStreak, dayKey, dueCount } from '@/engine/progress';
 import { isComplete, remainingSteps } from '@/engine/session';
 import { beginBlock as begin } from '@/features/beginBlock';
 import { SoundToggle } from '@/features/session/SessionParts';
+import { UpdateNotice } from '@/features/UpdateNotice';
 import { VoiceHint } from '@/features/VoiceHint';
 import { useNow } from '@/state/hooks';
 import { useProgress } from '@/state/progress';
@@ -80,6 +81,7 @@ export default function TodayScreen() {
       title="スキマ日語"
       subtitle={`${dateLabel(now)} · 程度 ${LEVEL_INFO[level].label}（${settings.difficultyMode === 'auto' ? '自動' : '手動'}）`}
       right={<SoundToggle />}>
+      <UpdateNotice />
       <VoiceHint />
       {resumable ? (
         <Card tone="primary">

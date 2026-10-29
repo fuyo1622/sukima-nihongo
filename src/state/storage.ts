@@ -7,11 +7,14 @@ const pending = new Map<string, string | null>();
 const writing = new Set<string>();
 
 export async function loadJSON<T>(key: string): Promise<T | null> {
+  let raw: string | null = null;
   try {
-    const raw = await AsyncStorage.getItem(PREFIX + key);
+    raw = await AsyncStorage.getItem(PREFIX + key);
     return raw == null ? null : (JSON.parse(raw) as T);
   } catch (e) {
     console.warn(`storage: could not read ${key}`, e);
+    // Set the unreadable value aside: the next save would otherwise destroy what might still be recovered.
+    if (raw != null) await AsyncStorage.setItem(`${PREFIX}unreadable:${key}`, raw).catch(() => undefined);
     return null;
   }
 }

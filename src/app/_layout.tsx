@@ -9,7 +9,9 @@ import { useEffect, useState } from 'react';
 import { AppState, useColorScheme } from 'react-native';
 
 import { checkVoices } from '@/audio/speech';
+import { keepStorage, webBuild } from '@/lib/webApp';
 import { hydrateStores } from '@/state/actions';
+import { noteBuild } from '@/state/appUpdate';
 import { useSettings } from '@/state/settings';
 import { FONT_ASSETS } from '@/ui/fonts';
 import { useColors } from '@/ui/theme';
@@ -28,6 +30,10 @@ export default function RootLayout() {
   // Keep the splash screen up until saved progress (and any unfinished block) is loaded.
   useEffect(() => {
     hydrateStores()
+      .then(() => {
+        noteBuild(webBuild);
+        keepStorage();
+      })
       .catch((e) => console.warn('could not load saved data', e))
       .finally(() => setHydrated(true));
   }, []);
