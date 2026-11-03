@@ -7,9 +7,9 @@ import { ALL_ITEMS } from '@/content';
 import { bestStreak, currentStreak, dayKey, totalMs } from '@/engine/progress';
 import { BackupPaste } from '@/features/BackupPaste';
 import { VoiceHint } from '@/features/VoiceHint';
+import { appBuild, buildKind } from '@/lib/appBuild';
 import { canPickBackupFile, pickBackupFile, saveBackupFile } from '@/lib/backupFile';
 import { confirmAsync, notify } from '@/lib/confirm';
-import { webBuild } from '@/lib/webApp';
 import { resetEverything } from '@/state/actions';
 import { backupFileName, createBackup, describeBackup, parseBackup, restoreBackup } from '@/state/backup';
 import { useNow } from '@/state/hooks';
@@ -152,7 +152,11 @@ export default function MeScreen() {
         footer="App 更新時學習紀錄會自動保留。刪掉 App（包括主畫面上的網頁版）或換手機前，先備份一份，之後再還原。">
         <Row
           label="備份學習紀錄"
-          detail={settings.lastBackupAt ? `上次備份：${dayKey(settings.lastBackupAt)}` : '存成一個檔案，還沒備份過'}
+          detail={
+            settings.lastBackupAt
+              ? `上次備份：${dayKey(settings.lastBackupAt)}`
+              : `${canPickBackupFile ? '存成一個檔案' : '存成一段文字'}，還沒備份過`
+          }
           onPress={backup}
         />
         <Divider />
@@ -165,7 +169,7 @@ export default function MeScreen() {
 
       <Txt variant="caption" color="textMuted" center>
         スキマ日語 v{Constants.expoConfig?.version ?? '1.0.0'}
-        {webBuild ? `（網頁版 ${webBuild.slice(0, 7)}）` : ''} · 學習紀錄存在這支手機上{'\n'}學習內容由 AI 協助編寫，持續校對中{'\n'}例句多數來自 Tatoeba（tatoeba.org，CC BY 2.0 FR），作者列在每個例句下方
+        {appBuild ? `（${buildKind} ${appBuild.slice(0, 7)}）` : ''} · 學習紀錄存在這支手機上{'\n'}學習內容由 AI 協助編寫，持續校對中{'\n'}例句多數來自 Tatoeba（tatoeba.org，CC BY 2.0 FR），作者列在每個例句下方
       </Txt>
       <BackupPaste visible={pasting} onClose={() => setPasting(false)} onRestore={(text) => void restoreFrom(text)} />
     </Screen>

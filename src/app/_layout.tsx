@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react';
 import { AppState, useColorScheme } from 'react-native';
 
 import { checkVoices } from '@/audio/speech';
-import { keepStorage, webBuild } from '@/lib/webApp';
+import { appBuild, keepStorage } from '@/lib/appBuild';
 import { hydrateStores } from '@/state/actions';
 import { noteBuild } from '@/state/appUpdate';
 import { useSettings } from '@/state/settings';
@@ -31,7 +31,7 @@ export default function RootLayout() {
   useEffect(() => {
     hydrateStores()
       .then(() => {
-        noteBuild(webBuild);
+        noteBuild(appBuild);
         keepStorage();
       })
       .catch((e) => console.warn('could not load saved data', e))

@@ -47,3 +47,6 @@ content/.cache/
 
 # Vercel CLI project link
 .vercel
+
+# Python bytecode (scripts/*.py)
+__pycache__/

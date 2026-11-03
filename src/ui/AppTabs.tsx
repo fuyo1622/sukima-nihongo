@@ -42,7 +42,8 @@ export default function AppTabs() {
       <NativeTabs.Trigger name="review">
         <NativeTabs.Trigger.Icon sf="arrow.triangle.2.circlepath" md="replay" />
         <NativeTabs.Trigger.Label>複習</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Badge hidden={due === 0}>{due > 99 ? '99+' : String(due)}</NativeTabs.Trigger.Badge>
+        {/* Left out rather than `hidden`: expo-router ignores `hidden` on a badge with text, so 「0」 showed. */}
+        {due > 0 && <NativeTabs.Trigger.Badge>{due > 99 ? '99+' : String(due)}</NativeTabs.Trigger.Badge>}
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="me">
         <NativeTabs.Trigger.Icon sf={{ default: 'person.crop.circle', selected: 'person.crop.circle.fill' }} md="person" />

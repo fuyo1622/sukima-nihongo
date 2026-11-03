@@ -12,7 +12,7 @@
 | **Context** | Spare moments of 1–5 minutes: commuting, eating, waiting. Often one-handed and often interrupted |
 | **Promise** | One tap from opening the app to the first question, and no progress lost when interrupted |
 | **Scope** | Kana → N5 → N4 → N3 → N2 → N1: vocabulary, kanji, grammar, listening, plus Chinese-speaker-specific modules |
-| **Platform** | iOS and Android from one Expo / React Native codebase (a web build is used for development and, deployed on Vercel as an offline Home Screen app, for testing on phones) |
+| **Platform** | iOS and Android from one Expo / React Native codebase. For testing on phones: the web build, deployed on Vercel as an offline Home Screen app, and an Android APK built by GitHub Actions |
 
 Contents: [1 Users](#1-users-and-contexts) · [2 Principles](#2-design-principles) ·
 [3 Learning block](#3-the-learning-block-學習小節) · [4 Exercises](#4-exercise-types) ·
@@ -384,7 +384,7 @@ layout pass, reduced-motion setting.
 
 | Concern | Choice | Why |
 |---|---|---|
-| Framework | **Expo SDK 57** (React Native 0.86, React 19.2, TypeScript 6) | Develop on Windows; run on iPhone and Android via Expo Go; build both in the cloud with EAS |
+| Framework | **Expo SDK 57** (React Native 0.86, React 19.2, TypeScript 6) | Develop on Windows; builds run in the cloud (Vercel for the web app, GitHub Actions for the APK, EAS for the stores) |
 | Navigation | Expo Router; native tabs (`NativeTabs`) | UITabBar on iOS, Material bottom navigation on Android, file-based routes |
 | State | Zustand stores | Small, explicit, works with the React Compiler |
 | Persistence | AsyncStorage, sharded | Simple and offline; writes are coalesced per key |
@@ -444,17 +444,29 @@ bytecode plus 1.5 MB of Japanese fonts; mid-range Android phones still need to b
   bundles, and the generated Android manifest was checked with `npx expo config --type introspect`.
 * The web build (`npm run web`) was used to click through every flow: onboarding, kana stage, N5/N1
   blocks, silent/sound switching mid-question, resume after reload, placement and dark mode.
+* Every APK build is installed on an Android emulator in CI and walked through by
+  `scripts/android-smoke.py`: onboarding, a whole block, 我的 with the backup share sheet, dark mode, a
+  restart and a reinstall over itself (the progress has to survive), with a screenshot per step.
 
 ### 8.6 Build and release
 
-1. Development: `npx expo start`, then open it in **Expo Go** (iPhone: Camera app; Android: the scanner
-   inside Expo Go).
-2. Android test builds: `eas build -p android --profile preview` makes an APK that installs from a link.
-3. Stores: `eas build -p ios|android` (production profile: App Store build / Play **AAB**, build numbers
+1. Development: `npx expo start`, then the web version in the browser, or **Expo Go** for the native app
+   (iPhone: Camera app; Android: the scanner inside Expo Go).
+2. Web app: every push to `master` deploys to Vercel (`npm run build:web`); the service worker makes it
+   work offline and installs new deploys on the next online start.
+3. Android APK: every push runs `.github/workflows/android.yml` on GitHub Actions: tests, `expo prebuild`
+   (the `android/` folder stays generated), `gradlew assembleRelease` for arm64-v8a, armeabi-v7a and
+   x86_64, then the emulator walkthrough (§8.5). On `master` the APK becomes the latest GitHub release
+   (the three newest are kept). It is signed through Gradle's injected signing properties with one
+   project key from the repository secrets (`scripts/android-signing.sh`), so every APK installs over the
+   previous one and keeps the data; the version code is the run number and `extra.build` the commit
+   (`app.config.ts`), which 我的 shows and which triggers the 「已更新」 notice. Without the key, builds
+   are still tested but not published.
+4. Stores: `eas build -p ios|android` (production profile: App Store build / Play **AAB**, build numbers
    managed remotely by EAS), then `eas submit`. Android submits go to the Play **internal testing** track;
    the first AAB must be uploaded by hand in the Play Console. Needs unique `ios.bundleIdentifier` and
    `android.package` values plus Apple / Google Play developer accounts.
-4. Over-the-air content/UI fixes: `eas update`.
+5. Over-the-air content/UI fixes for store builds: `eas update`.
 
 ### 8.7 Android specifics
 
@@ -467,7 +479,7 @@ bytecode plus 1.5 MB of Japanese fonts; mid-range Android phones still need to b
 | Touch feedback | Material ripple on buttons and answer options |
 | Speech | Locale passed as `ja` (expo-speech's Android locale parsing), on-device voices first, next voice on error, no playback without a Japanese voice (§3.4) |
 | Permissions | Only INTERNET, VIBRATE and MODIFY_AUDIO_SETTINGS (no prompts); storage and overlay permissions from the template are removed |
-| Backup | Android Auto Backup is left on, so progress follows the learner to a new phone through their Google backup |
+| Backup | Android Auto Backup is left on, so progress follows the learner to a new phone through their Google backup. Android reports every share sheet as shared, even a closed one, so 備份學習紀錄 asks whether the backup was kept before recording its date |
 
 ## 9. Privacy and data
 
@@ -478,7 +490,7 @@ safety form.
 
 **Keeping progress.** App updates never touch it: each version reads the data the last one saved, and data
 that can't be read is set aside instead of being overwritten. The web app asks the browser to keep its
-storage and, after an update, says once on 今天 that the progress was kept. Deleting the app (on an iPhone
+storage. After an update (a new web deploy or APK), 今天 says once that the progress was kept. Deleting the app (on an iPhone
 also a Home Screen web app) deletes its storage, so 我的 → 資料 has **備份學習紀錄** (progress and settings
 as one JSON file, shared or downloaded) and **從備份還原** (pick the file; the native app pastes it). The
 file never leaves the phone unless the learner sends it somewhere.
@@ -511,7 +523,7 @@ Measured with opt-in analytics in a later version:
 | JLPT lists are unofficial | Present levels as 「大約」; keep ids stable so regrading a level only changes difficulty |
 | TTS quality for advanced listening | Enhanced voice auto-selection now; recorded/neural audio for N3+ (v1.2) |
 | Android phones without Japanese voice data, and OEM TTS engines that behave differently | Detect and explain (§3.4), fall back between voices, silent questions meanwhile; test on Samsung (Samsung TTS) and Pixel (Google TTS) before release; bundled audio in v1.2 |
-| Android not yet run on real hardware (built and checked from Windows without an emulator) | Before release: Expo Go on 2–3 phones (small screen, large font setting, 3-button navigation, dark mode), then an EAS preview APK |
+| Android not yet run on real hardware (each APK is walked through on an emulator in CI) | Before release: the APK on 2–3 phones (small screen, large font setting, 3-button navigation, dark mode, Samsung and Pixel) |
 | Data licensing when importing open data | Keep imported sources and attributions separate; CC BY-SA content stays share-alike |
-| Expo Go limits (widgets, background audio need a dev build) | Ship v1 features that work in Expo Go; v1.1 moves to development builds via EAS |
+| Expo Go limits (widgets, background audio need native code Expo Go lacks) | The APK is a full native build, so v1.1 features can ship in it; Expo Go stays for quick checks, development builds for native debugging |
 | Theme switching while the app is open | Works via `useColorScheme` on device; verify on hardware (the web test harness could not emulate the change event) |

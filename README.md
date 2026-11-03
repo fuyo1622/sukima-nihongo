@@ -13,39 +13,40 @@ and Android: 1–5 minute blocks you can stop at any moment, with or without sou
 
 The full product and technical design is in [docs/DESIGN.md](docs/DESIGN.md).
 
-## Run it
+## Get it on your phone
 
-Requirements: Node 20+ (tested with Node 24) and a phone with **Expo Go** (App Store or Google Play).
-No Mac, Xcode or Android Studio needed.
+No computer or app store needed. Both versions update from this repository: every push to `master`
+deploys a new web app and builds a new APK.
 
-```bash
-npm install
-npx expo start
-```
+### iPhone (or any phone): the web app
 
-Open the app on the phone (phone and computer on the same Wi-Fi, or run `npx expo start --tunnel`):
+Open **https://sukima-nihongo.vercel.app** in Safari → Share → 加入主畫面 (Add to Home Screen), then open
+スキマ日語 from the Home Screen. On Android: Chrome → ⋮ → Install app.
 
-* **iPhone**: scan the QR code with the Camera app.
-* **Android**: scan the QR code from inside Expo Go (「Scan QR code」).
+* It opens offline after the first visit.
+* A new version installs itself the next time the app is opened online. The progress stays, and 今天 says
+  so once.
+* Progress is stored on the phone, and deleting the Home Screen app deletes it. Before that, or before
+  changing phones, use 我的 → 資料 → 備份學習紀錄 (saves a file, e.g. to 「檔案」), then 從備份還原 in the
+  new install.
+* It is the web build: web tab bar, no vibration, and speech uses the browser's Japanese voice.
 
-Press `w` in the terminal for a web preview in the browser.
+### Android: the APK
 
-### Web app on the phone (no computer needed)
+On the phone, download
+**[sukima-nihongo.apk](https://github.com/fuyo1622/sukima-nihongo/releases/latest/download/sukima-nihongo.apk)**
+(about 50 MB) and open it. Allow Chrome to install unknown apps when asked, and if Play Protect asks about the app,
+choose to install anyway.
 
-For everyday testing, the web build is deployed on Vercel and can be installed on a phone's Home Screen:
-
-* Every push to `master` on GitHub deploys it: Vercel runs `npm run build:web` (settings in `vercel.json`).
-* **iPhone**: open the site in Safari → Share → 加入主畫面 (Add to Home Screen), then open it from that icon.
-  **Android**: Chrome → ⋮ → Install app.
-* It opens offline after the first visit (service worker in `public/sw.js`). A new deploy shows up the next
-  time the app is opened online, and the progress stays (no need to re-add the app). Progress is stored on
-  the phone, separately from Expo Go.
-* Deleting the Home Screen app deletes its progress. Before that, or before changing phones, use
-  我的 → 資料 → 備份學習紀錄 (saves a file, e.g. to 「檔案」), then 從備份還原 in the new install.
-
-It is the web build, so a few things differ from the native app: the tab bar is the web one, there is no
-vibration, speech uses the browser's Japanese voice, and the bundled Android font isn't used. Check those
-in Expo Go or a native build. `npm run build:web` builds the same site locally into `dist/`.
+* This is the native app: Material tab bar, vibration, the phone's own Japanese voice and the bundled
+  Japanese font.
+* For a new version, download the APK again and install it over the old one: the progress stays. All
+  versions are under [Releases](https://github.com/fuyo1622/sukima-nihongo/releases).
+* Uninstalling the app deletes its progress. Back it up first (我的 → 資料 → 備份學習紀錄 shares it as
+  text, e.g. to Google Keep or Drive), and paste it back with 從備份還原.
+* Google plans to require registered developers for APKs on certified Android phones worldwide from 2027
+  (already enforced in Brazil, Indonesia, Singapore and Thailand). Where that applies, the APK installs
+  only through Android's "advanced flow" for apps from unverified developers.
 
 ### Japanese voice
 
@@ -58,6 +59,36 @@ Chinese voice.
 * **Android**: some phones have no Japanese voice data installed. 我的 then has a button that opens
   the text-to-speech settings; download 日文 for the engine (e.g. Speech Services by Google), then come
   back to the app. On-device voices are preferred over network ones.
+
+## Develop
+
+Requirements: Node 20+ (tested with Node 24). No Mac, Xcode or Android Studio needed.
+
+```bash
+npm install
+npx expo start
+```
+
+Press `w` in the terminal to open the web version in the browser. To try the native app while developing,
+open it in **Expo Go** on a phone on the same Wi-Fi (or run `npx expo start --tunnel`): on iPhone scan the
+QR code with the Camera app, on Android scan it from inside Expo Go. Progress in Expo Go is separate from
+the installed apps.
+
+## How it's built and deployed
+
+* **Web app**: Vercel builds every push to `master` with `npm run build:web` (settings in `vercel.json`)
+  and serves it at https://sukima-nihongo.vercel.app. The service worker (`public/sw.js`) keeps it working
+  offline and picks up new deploys. `npm run build:web` builds the same site into `dist/`.
+* **Android APK**: GitHub Actions ([`.github/workflows/android.yml`](.github/workflows/android.yml)) builds
+  a release APK on every push (`expo prebuild` + Gradle, no Expo account), installs it on an Android
+  emulator and walks through onboarding, a block, 我的, a restart and an update (screenshots in the run's
+  `emulator` artifact). On `master` it then publishes the APK as the latest release. The version code is
+  the run number, and 我的 shows the commit (`app.config.ts`).
+* **APK signing**: every APK is signed with the same key, so each one installs over the last and keeps the
+  progress. The key is in the repository secrets `ANDROID_KEYSTORE_BASE64` and
+  `ANDROID_KEYSTORE_PASSWORD`, set once with `bash scripts/android-signing.sh`, which keeps a copy in
+  `~/.sukima-nihongo-signing` (keep that folder). Without the secrets, APKs are still built and tested, but
+  not published.
 
 ## Scripts
 
@@ -72,6 +103,8 @@ Chinese voice.
 | `npm run lint` | ESLint |
 | `npm run build:content` | Validate `content/` and regenerate `src/content/data/*.json` |
 | `npm run examples -- select` / `apply` | Pick example sentences from Tatoeba for words without one, then write the reviewed ones into `content/` |
+| `bash scripts/android-signing.sh` | One-time: make the APK signing key and store it in the GitHub secrets |
+| `python3 scripts/android-smoke.py <apk> <dir>` | Walk through the APK on a running emulator (what CI does) |
 
 ## Project layout
 
@@ -87,9 +120,12 @@ src/content/     content types, kana table, registry, generated data/
 content/         editable sources: vocab/*.tsv, kanji/*.tsv, grammar/*.txt, traps.tsv (see content/README.md)
 assets/fonts/    Noto Sans JP subset for Android (generated by build:content)
 public/          web app page, Home Screen manifest and icons, offline service worker (sw.js)
-scripts/         build-content.ts, import-examples.ts (Tatoeba), finalize-web.ts (web build)
+scripts/         build-content.ts, import-examples.ts (Tatoeba), finalize-web.ts (web build),
+                 android-signing.sh (APK key), android-smoke.py (emulator walkthrough)
 docs/            DESIGN.md
-eas.json         EAS Build profiles (preview APK, production store builds)
+.github/         workflows/android.yml: APK build, emulator walkthrough, release
+app.config.ts    app.json plus the APK's version code and commit
+eas.json         EAS Build profiles (store builds)
 vercel.json      Vercel settings for the web app
 ```
 
@@ -109,23 +145,23 @@ full N1 lists are in [content/README.md](content/README.md).
   author and links to the sentence; ids are kept in `content/vocab/*.tsv` (see content/README.md).
 * Japanese font on Android: Noto Sans JP, SIL Open Font License (`assets/fonts/OFL.txt`).
 
-## Build and publish
+## App Store and Google Play (EAS)
 
-EAS builds in the cloud, so both platforms build from Windows. First change the app IDs in `app.json`
-to your own (`ios.bundleIdentifier` and `android.package`, e.g. `com.yourname.sukima`), then run
-`npx eas-cli@latest login`. Build numbers are managed by EAS (`appVersionSource: remote` in `eas.json`).
+Not needed for the web app or the APK above. Store builds use EAS, which builds in the cloud, so both
+platforms build from Windows; it needs an Expo account (`npx eas-cli@latest login`). Before the first store
+build, decide on the final app IDs in `app.json` (`ios.bundleIdentifier` and `android.package`, today
+`com.sukimanihongo.app`): changing `android.package` later makes Android treat it as a different app from the
+APK, so progress would move over only through a backup. Build numbers are managed by EAS
+(`appVersionSource: remote` in `eas.json`).
 
 **iOS** (needs an Apple Developer account)
 
 1. `npx eas-cli@latest build -p ios`
 2. `npx eas-cli@latest submit -p ios` to upload to TestFlight / App Store Connect.
 
-**Android**
+**Android** (needs a Google Play developer account)
 
-* Test build: `npx eas-cli@latest build -p android --profile preview` makes an **APK** you can
-  install directly: open the link or QR code EAS shows on the phone (allow installing unknown apps).
-* Store build: `npx eas-cli@latest build -p android` makes an **AAB** for Google Play (needs a Google
-  Play developer account).
+* `npx eas-cli@latest build -p android` makes an **AAB** for Google Play.
 * `npx eas-cli@latest submit -p android` uploads it to the Play Console **internal testing** track
   (set in `eas.json`). Google Play only accepts API uploads after the app's first upload, so upload the
   very first AAB by hand in the Play Console; automated submits also need a Google service account key.

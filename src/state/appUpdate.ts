@@ -4,7 +4,7 @@ import { useProgress } from './progress';
 import { useSettings } from './settings';
 
 interface AppUpdateStore {
-  /** The web app was updated since it last ran, and the learner's progress came along. */
+  /** The app (web app or APK) was updated since it last ran, and the learner's progress came along. */
   updated: boolean;
   dismiss: () => void;
 }

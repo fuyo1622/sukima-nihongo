@@ -1,0 +1,151 @@
+name: Android APK
+
+# Every push: build a release APK and walk through it on an Android emulator (screenshots in the run's
+# "emulator" artifact). On master, once the signing key is in the repository secrets
+# (scripts/android-signing.sh), the APK is published as the latest release:
+# https://github.com/fuyo1622/sukima-nihongo/releases/latest
+on:
+  push:
+    paths-ignore: ['**.md', 'docs/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    outputs:
+      signed: ${{ steps.key.outputs.signed }}
+    env:
+      # Read by app.config.ts: each APK gets a higher version code, and 我的 shows the commit.
+      ANDROID_VERSION_CODE: ${{ github.run_number }}
+      APP_BUILD: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v6
+      - run: npm ci
+      - run: npm test -- --ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npx expo prebuild --platform android --no-install
+
+      - name: Signing key
+        id: key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.p12"
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::No signing key in the repository secrets yet (scripts/android-signing.sh), so this APK is signed with the debug key and not published."
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build the APK
+        working-directory: android
+        env:
+          SIGNED: ${{ steps.key.outputs.signed }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          signing=()
+          if [ "$SIGNED" = true ]; then
+            signing=(
+              "-Pandroid.injected.signing.store.file=$RUNNER_TEMP/release.p12"
+              "-Pandroid.injected.signing.store.password=$KEYSTORE_PASSWORD"
+              "-Pandroid.injected.signing.key.alias=sukima"
+              "-Pandroid.injected.signing.key.password=$KEYSTORE_PASSWORD"
+            )
+          fi
+          # Phones (64-bit, and older 32-bit ones) plus x86_64 for emulators.
+          ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a,armeabi-v7a,x86_64 "${signing[@]}"
+
+      - name: Check the signature
+        env:
+          SIGNED: ${{ steps.key.outputs.signed }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          apk=android/app/build/outputs/apk/release/app-release.apk
+          apksigner=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          "$apksigner" verify --print-certs "$apk" | tee signer.txt
+          if [ "$SIGNED" = true ]; then
+            key=$(keytool -list -v -keystore "$RUNNER_TEMP/release.p12" -storepass "$KEYSTORE_PASSWORD" -alias sukima \
+              | grep -m1 'SHA256:' | sed 's/.*SHA256: *//; s/://g' | tr 'A-F' 'a-f')
+            grep -q "SHA-256 digest: $key" signer.txt || { echo "::error::The APK is not signed with the release key"; exit 1; }
+          fi
+          mv "$apk" sukima-nihongo.apk
+          ls -l sukima-nihongo.apk
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: apk
+          path: sukima-nihongo.apk
+          retention-days: 14
+
+  emulator:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: apk
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Walk through the app on an emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 4
+          ram-size: 4096M
+          disable-animations: true
+          script: python3 scripts/android-smoke.py sukima-nihongo.apk emulator
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: emulator
+          path: emulator
+
+  release:
+    needs: [build, emulator]
+    if: github.ref == 'refs/heads/master' && needs.build.outputs.signed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: apk
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN: ${{ github.run_number }}
+        run: |
+          gh release create "android-$RUN" sukima-nihongo.apk --target "$GITHUB_SHA" --latest \
+            --title "スキマ日語 Android $RUN" \
+            --notes "Built from ${GITHUB_SHA::7}. Install it over the previous version to keep your progress（直接裝在舊版上，學習紀錄會保留）."
+          # Keep the three newest APK releases.
+          gh release list --limit 100 --json tagName --jq '.[].tagName' | grep '^android-' | tail -n +4 \
+            | xargs -r -n1 gh release delete --yes --cleanup-tag
